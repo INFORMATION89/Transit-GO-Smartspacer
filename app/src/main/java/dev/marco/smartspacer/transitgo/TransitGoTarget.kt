@@ -42,7 +42,7 @@ class TransitGoTarget : SmartspacerTargetProvider() {
         val openTrip = TapAction(
             pendingIntent = state.contentIntent,
             intent = if (state.contentIntent == null) {
-                ctx.packageManager.getLaunchIntentForPackage(TransitGoNotificationProvider.TRANSIT_PACKAGE)
+                ctx.packageManager.getLaunchIntentForPackage(TransitGoListener.TRANSIT_PACKAGE)
             } else null
         )
 
@@ -91,9 +91,7 @@ class TransitGoTarget : SmartspacerTargetProvider() {
             label = ctx.getString(R.string.target_label),
             description = ctx.getString(R.string.target_description),
             icon = AndroidIcon.createWithResource(ctx, R.drawable.ic_transit_go),
-            configActivity = Intent(ctx, SettingsActivity::class.java),
-            // Smartspacer sends Transit's notifications to this provider through its own listener
-            notificationProvider = TransitGoNotificationProvider.AUTHORITY
+            configActivity = Intent(ctx, SettingsActivity::class.java)
         )
     }
 

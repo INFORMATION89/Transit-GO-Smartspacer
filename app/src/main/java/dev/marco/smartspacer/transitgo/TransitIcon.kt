@@ -20,7 +20,7 @@ object TransitIcon {
     fun get(context: Context, size: Int = 192): Bitmap? {
         cached?.let { return it }
         return try {
-            context.packageManager.getApplicationIcon(TransitGoNotificationProvider.TRANSIT_PACKAGE)
+            context.packageManager.getApplicationIcon(TransitGoListener.TRANSIT_PACKAGE)
                 .toBitmap(size, size)
                 .copy(Bitmap.Config.ARGB_8888, false)
                 .also { cached = it }
@@ -36,7 +36,7 @@ object TransitIcon {
     fun glyph(context: Context, size: Int = 192): Bitmap? {
         cachedGlyph?.let { return it }
         return try {
-            val icon = context.packageManager.getApplicationIcon(TransitGoNotificationProvider.TRANSIT_PACKAGE)
+            val icon = context.packageManager.getApplicationIcon(TransitGoListener.TRANSIT_PACKAGE)
             val layer: Drawable = (icon as? AdaptiveIconDrawable)?.let {
                 (if (Build.VERSION.SDK_INT >= 33) it.monochrome else null) ?: it.foreground
             } ?: return null

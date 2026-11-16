@@ -5,14 +5,12 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
-import android.os.Handler
-import android.os.Looper
+import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.kieronquinn.app.smartspacer.sdk.provider.SmartspacerNotificationProvider
 import com.kieronquinn.app.smartspacer.sdk.provider.SmartspacerTargetProvider
 
 /** The live GO trip, as read from Transit's notification. */
@@ -43,30 +41,39 @@ object GoStore {
 }
 
 /**
- * Gets Transit's notifications through **Smartspacer's** notification listener, so the plugin
- * doesn't need notification access of its own. Smartspacer calls [onNotificationsChanged] with
- * all of Transit's current notifications whenever they change (only while the Transit GO Target
- * is added).
+ * The plugin's notification listener. Android hands a listener every app's notifications and
+ * can't be told to limit them to one app, so this drops anything that isn't Transit's GO channel
+ * immediately, looking only at the package name and channel, before reading any content.
+ *
+ * (Smartspacer's own listener, via a SmartspacerNotificationProvider like the Uber plugin uses,
+ * was tried first, but Smartspacer didn't deliver Transit's notifications to it.)
  */
-class TransitGoNotificationProvider : SmartspacerNotificationProvider() {
+class TransitGoListener : NotificationListenerService() {
 
-    override fun getConfig(smartspacerId: String) = Config(setOf(TRANSIT_PACKAGE))
-
-    override fun onNotificationsChanged(
-        smartspacerId: String,
-        isListenerEnabled: Boolean,
-        notifications: List<StatusBarNotification>
-    ) {
-        val context = provideContext()
-        // Called on a binder thread: read and render Transit's layout on the main thread
-        main.post { TripReader.onNotifications(context, isListenerEnabled, notifications) }
+    override fun onListenerConnected() {
+        // Pick up a trip that was already running before we connected
+        activeNotifications?.forEach { if (isTransitGo(it)) TripReader.onPosted(this, it) }
     }
 
+    override fun onNotificationPosted(sbn: StatusBarNotification) {
+        if (isTransitGo(sbn)) TripReader.onPosted(this, sbn)
+    }
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        // Only the key is compared: nothing else about other apps' notifications is read
+        TripReader.onRemoved(this, sbn.key)
+    }
+
+    // Notification access turned off (or the system unbinding us): we'd stop hearing about
+    // the trip, so don't leave its last state stuck on the card
+    override fun onListenerDisconnected() = TripReader.onLost(this)
+
+    private fun isTransitGo(sbn: StatusBarNotification) =
+        sbn.packageName == TRANSIT_PACKAGE && sbn.notification.channelId == GO_CHANNEL
+
     companion object {
-        const val AUTHORITY = "dev.marco.smartspacer.transitgo.notifications"
         const val TRANSIT_PACKAGE = "com.thetransitapp.droid"
         const val GO_CHANNEL = "go_mode"
-        private val main = Handler(Looper.getMainLooper())
     }
 }
 
@@ -81,22 +88,21 @@ object TripReader {
     private var lastDumped: String? = null
     private var dumpCount = 0
 
-    fun onNotifications(context: Context, isListenerEnabled: Boolean, notifications: List<StatusBarNotification>) {
+    /** A Transit GO-channel notification was posted or updated. */
+    fun onPosted(context: Context, sbn: StatusBarNotification) {
         val isDebug = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
-        val go = notifications.filter {
-            it.packageName == TransitGoNotificationProvider.TRANSIT_PACKAGE &&
-                it.notification.channelId == TransitGoNotificationProvider.GO_CHANNEL
-        }
-        if (isDebug) {
-            Log.d(TAG, "notifications: listener=$isListenerEnabled transit=${notifications.size} go=${go.size}")
-            go.forEach { logGoNotification(it) }
-        }
-        val live = go.firstOrNull { isLiveTrip(it) }
-        when {
-            // Smartspacer's listener off, or the trip ended: don't leave the last trip on the card
-            !isListenerEnabled || live == null -> if (GoStore.state != null) clearTrip(context)
-            else -> update(context, live, isDebug)
-        }
+        if (isDebug) logGoNotification(sbn)
+        if (isLiveTrip(sbn)) update(context, sbn, isDebug)
+    }
+
+    /** Some notification was removed: clear the card if it was the live trip's. */
+    fun onRemoved(context: Context, key: String) {
+        if (key == GoStore.state?.notificationKey) clearTrip(context)
+    }
+
+    /** We stopped receiving notifications. */
+    fun onLost(context: Context) {
+        if (GoStore.state != null) clearTrip(context)
     }
 
     /**

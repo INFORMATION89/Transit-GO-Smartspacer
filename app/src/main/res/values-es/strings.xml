@@ -18,8 +18,8 @@
     <string name="setting_hide_title">Ocultar notificación en la pantalla de bloqueo</string>
     <string name="setting_hide_summary">Mientras esta tarjeta sea la primera. Requiere Native Smartspace; la notificación sigue en el panel.</string>
     <string name="setting_access">Acceso a notificaciones</string>
-    <string name="setting_access_on">Activado: Smartspacer puede leer la notificación GO de Transit para este plugin</string>
-    <string name="setting_access_off">Desactivado: Smartspacer necesita acceso a notificaciones, o la tarjeta no aparecerá. Toca para activarlo.</string>
+    <string name="setting_access_on">Activado: el plugin solo lee la notificación GO de Transit</string>
+    <string name="setting_access_off">Desactivado: toca para activarlo, o la tarjeta no aparecerá</string>
 
     <!-- Vista previa -->
     <string name="preview_example">Viaje de ejemplo · inicia GO en Transit para ver el tuyo</string>

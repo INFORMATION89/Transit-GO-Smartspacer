@@ -2,8 +2,15 @@ package dev.marco.smartspacer.transitgo
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.animation.core.animate
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.lerp
@@ -114,13 +121,11 @@ class SettingsActivity : ComponentActivity() {
 
     private companion object {
         const val SOURCE_URL = "https://github.com/INFORMATION89/Transit-GO-Smartspacer"
-        const val FOOTER_KEY = "footer"
-        const val SMARTSPACER_PACKAGE = "com.kieronquinn.app.smartspacer"
-        /** Scroll distance over which the Source code chip grows from smallest to full size */
-        val FOOTER_GROW = 120.dp
-        /** Fixed footer height (top gap + largest chip + growing room), so the chip growing
-         *  never changes the list's length while you scroll */
-        val FOOTER_HEIGHT = 28.dp + 64.dp + FOOTER_GROW
+        /** How far you pull past the end of the list for the Source code chip to open the repo */
+        val PULL_TO_OPEN = 140.dp
+        /** Footer height: top gap + the largest chip, so the chip growing never changes the
+         *  list's length (the chip sits at the bottom of it) */
+        val FOOTER_HEIGHT = 28.dp + 64.dp
     }
 
     private var accessGranted by mutableStateOf(false)
@@ -135,9 +140,8 @@ class SettingsActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Refresh when coming back from the notification access screen. The plugin reads Transit
-        // through Smartspacer's notification listener, so that's the access that matters.
-        accessGranted = NotificationManagerCompat.getEnabledListenerPackages(this).contains(SMARTSPACER_PACKAGE)
+        // Refresh when coming back from the notification access screen
+        accessGranted = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
     }
 
     /** Saves a change, redraws the preview and tells Smartspacer to redraw the card. */
@@ -168,27 +172,15 @@ class SettingsActivity : ComponentActivity() {
                 )
             }
         ) { padding ->
-            val listState = rememberLazyListState()
-            // 0 while the footer's growing room is still below the screen, 1 when scrolled all
-            // the way to the end; follows the scroll position continuously
-            val growPx = with(LocalDensity.current) { FOOTER_GROW.toPx() }
-            val footerProgress by remember(growPx) {
-                derivedStateOf {
-                    val info = listState.layoutInfo
-                    val footer = info.visibleItemsInfo.lastOrNull { it.key == FOOTER_KEY } ?: return@derivedStateOf 0f
-                    val hidden = footer.offset + footer.size - (info.viewportEndOffset - info.afterContentPadding)
-                    (1f - hidden / growPx).coerceIn(0f, 1f)
-                }
-            }
+            val pullToOpen = rememberPullToOpen { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SOURCE_URL))) }
             LazyColumn(
-                state = listState,
                 contentPadding = PaddingValues(
                     start = 16.dp, end = 16.dp,
                     top = padding.calculateTopPadding(),
                     bottom = padding.calculateBottomPadding() + 24.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize().nestedScroll(pullToOpen.connection)
             ) {
                 item { Column { PreviewCard(settings) } }
 
@@ -220,10 +212,10 @@ class SettingsActivity : ComponentActivity() {
                     ) { startActivity(Intent(AndroidSettings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
                 }
 
-                // Grows as you scroll through the last stretch of the screen (see SourceChip)
-                item(key = FOOTER_KEY) {
+                // Sits at the end of the list; grows as you pull past the end (see rememberPullToOpen)
+                item {
                     Box(Modifier.fillMaxWidth().height(FOOTER_HEIGHT)) {
-                        SourceChip(footerProgress, Modifier.align(Alignment.TopCenter).padding(top = 28.dp))
+                        SourceChip(pullToOpen.progress, Modifier.align(Alignment.BottomCenter))
                     }
                 }
             }
@@ -356,6 +348,64 @@ class SettingsActivity : ComponentActivity() {
         }
     }
 
+    /** Pull-past-the-end state: [progress] 0..1, and the scroll connection that drives it. */
+    private class PullToOpen(val connection: NestedScrollConnection, private val pull: () -> Float, private val max: Float) {
+        val progress get() = (pull() / max).coerceIn(0f, 1f)
+    }
+
+    /**
+     * Normal scrolling and flinging are untouched. Only when you're already at the end and keep
+     * dragging (finger moving up), the leftover drag is collected as a "pull", with some
+     * resistance; reaching [PULL_TO_OPEN] calls [onOpen] once, with a vibration. Letting go
+     * springs the pull back to 0. Flings that run into the end are ignored.
+     */
+    @Composable
+    private fun rememberPullToOpen(onOpen: () -> Unit): PullToOpen {
+        val maxPx = with(LocalDensity.current) { PULL_TO_OPEN.toPx() }
+        val haptics = LocalHapticFeedback.current
+        val pull = remember { mutableFloatStateOf(0f) }
+        val opened = remember { mutableStateOf(false) }
+        val currentOnOpen by rememberUpdatedState(onOpen)
+        val connection = remember(maxPx) {
+            object : NestedScrollConnection {
+                // Dragging back down while pulled: shrink the pull before the list scrolls
+                override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                    if (pull.floatValue > 0f && available.y > 0f && source == NestedScrollSource.UserInput) {
+                        val used = minOf(available.y, pull.floatValue)
+                        pull.floatValue -= used
+                        return Offset(0f, used)
+                    }
+                    return Offset.Zero
+                }
+
+                // Drag left over after the list hit its end: that's the pull
+                override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                    if (available.y < 0f && source == NestedScrollSource.UserInput) {
+                        pull.floatValue = (pull.floatValue - available.y * 0.55f).coerceAtMost(maxPx)
+                        if (pull.floatValue >= maxPx && !opened.value) {
+                            opened.value = true
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            currentOnOpen()
+                        }
+                        return Offset(0f, available.y)
+                    }
+                    return Offset.Zero
+                }
+
+                // Finger lifted: spring the chip back
+                override suspend fun onPreFling(available: Velocity): Velocity {
+                    if (pull.floatValue <= 0f) return Velocity.Zero
+                    animate(pull.floatValue, 0f, animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow)) { v, _ ->
+                        pull.floatValue = v
+                    }
+                    opened.value = false
+                    return available
+                }
+            }
+        }
+        return remember(connection) { PullToOpen(connection, { pull.floatValue }, maxPx) }
+    }
+
     /** Which icon the card shows, so the preview can animate when it changes */
     private enum class IconKind { Chip, Step, App, None }
 
@@ -408,8 +458,8 @@ class SettingsActivity : ComponentActivity() {
 
     /**
      * "[GitHub] Source code" chip at the bottom, opening the repo in the browser.
-     * At [progress] 0 it's a small chip; it grows with the scroll position until, at 1 (scrolled
-     * all the way down), it's a full-width button: taller, bigger icon and text, tinted color.
+     * At [progress] 0 it's a small chip; it grows as you pull past the end of the list until, at
+     * 1 (when the repo opens), it's a full-width button: taller, bigger icon and text, tinted.
      */
     @Composable
     private fun SourceChip(progress: Float, modifier: Modifier) {
