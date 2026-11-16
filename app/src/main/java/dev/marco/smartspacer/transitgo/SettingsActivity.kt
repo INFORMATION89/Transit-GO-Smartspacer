@@ -173,6 +173,12 @@ class SettingsActivity : ComponentActivity() {
         const val PULL_ROOM_SHARE = 0.7f
         /** ...but at least this share of the screen's height */
         const val PULL_MIN_SHARE = 0.18f
+        /** Letting go faster than this (upward, per second) finishes the pull and opens the repo */
+        val FLICK_VELOCITY = 1200.dp
+        /** ...if the chip was pulled at least this share of the way, so a tiny twitch doesn't count */
+        const val FLICK_MIN_PULL = 0.08f
+        /** How long the chip takes to finish filling the screen after a flick */
+        const val FLICK_FINISH_MS = 260
         /** Share of the pull spent growing the chip into a full-width button (the rest fills the screen) */
         const val CHIP_PHASE = 0.35f
         /** Source code label size on the full-width button and on the full screen (1 = chip) */
@@ -643,6 +649,7 @@ class SettingsActivity : ComponentActivity() {
         val maxPx = screen * PULL_SCREEN_SHARE
         val currentArmed by rememberUpdatedState(armed)
         val haptics = LocalHapticFeedback.current
+        val flickPx = with(LocalDensity.current) { FLICK_VELOCITY.toPx() }
         val pull = remember { mutableFloatStateOf(0f) }
         // Distance this pull needs, set when it starts so it can't change halfway through
         val needed = remember { mutableFloatStateOf(maxPx) }
@@ -688,8 +695,19 @@ class SettingsActivity : ComponentActivity() {
                 override suspend fun onPreFling(available: Velocity): Velocity {
                     if (pull.floatValue <= 0f) return Velocity.Zero
                     grab()
+                    // A quick flick up (not just a slow let-go) finishes the pull by itself:
+                    // the chip fills the screen and the repo opens, then it springs back
+                    val flicked = -available.y >= flickPx && pull.floatValue >= needed.floatValue * FLICK_MIN_PULL
                     springBack.value = scope.launch {
                         try {
+                            if (flicked && !opened.value) {
+                                animate(pull.floatValue, needed.floatValue, animationSpec = tween(FLICK_FINISH_MS, easing = FastOutSlowInEasing)) { v, _ ->
+                                    pull.floatValue = v
+                                }
+                                opened.value = true
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                currentOnOpen()
+                            }
                             animate(pull.floatValue, 0f, animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow)) { v, _ ->
                                 pull.floatValue = v.coerceAtLeast(0f) // the bounce never goes past "no pull"
                             }
