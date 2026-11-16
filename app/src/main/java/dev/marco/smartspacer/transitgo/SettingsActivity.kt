@@ -136,7 +136,7 @@ class SettingsActivity : ComponentActivity() {
     private companion object {
         const val SOURCE_URL = "https://github.com/INFORMATION89/Transit-GO-Smartspacer"
         /** Share of the screen's height to drag past the end for the Source code chip to open the repo */
-        const val PULL_SCREEN_SHARE = 0.55f
+        const val PULL_SCREEN_SHARE = 0.41f
         /** Share of the pull spent growing the chip into a full-width button (the rest fills the screen) */
         const val CHIP_PHASE = 0.35f
         /** Source code label size on the full-width button and on the full screen (1 = chip) */
