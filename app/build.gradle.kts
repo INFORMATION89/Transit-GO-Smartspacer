@@ -12,8 +12,8 @@ android {
         applicationId = "dev.marco.smartspacer.transitgo"
         minSdk = 29
         targetSdk = 36
-        versionCode = 110
-        versionName = "1.1"
+        versionCode = 120
+        versionName = "1.2"
     }
 
     buildTypes {
