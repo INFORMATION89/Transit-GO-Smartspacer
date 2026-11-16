@@ -86,7 +86,7 @@ object SampleTrip {
             )
             // Bike station (like Transit's real one): "3 bikes / Walk to …", no route chip
             else -> GoState(
-                title = plural(R.plurals.sample_bikes, Random.nextInt(0, 16)), text = null,
+                title = Random.nextInt(0, 16).let { n -> plural(R.plurals.sample_bikes, n).let { if (n < 3) "${TripReader.CAUTION} $it" else it } }, text = null,
                 previous = res.getString(R.string.sample_walk_to, stop),
                 contentIntent = null, stepIcon = icon(if (Random.nextBoolean()) R.drawable.ic_sample_walk else R.drawable.ic_sample_bike),
                 arrival = arrival, timeLeft = timeLeft

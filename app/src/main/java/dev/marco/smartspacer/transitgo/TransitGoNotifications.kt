@@ -178,19 +178,25 @@ object TripReader {
     /** Transit's bike-station title, just a count: "10 bikes" / "0 bicis" */
     private val BIKES = Regex("""^(\d+)\s+(bikes?|bicis?)$""", RegexOption.IGNORE_CASE)
 
+    /** Fewer bikes than this at the station gets a caution sign */
+    private const val FEW_BIKES = 3
+    /** ⚠ as a plain text symbol (U+FE0E asks for the one-color text style, not the emoji) */
+    const val CAUTION = "\u26A0\uFE0E"
+
     /**
-     * "10 bikes" -> "10 bikes left", "0 bicis" -> "0 bicis restantes". Uses the language of
+     * "10 bikes" -> "10 bikes left", "0 bicis" -> "⚠ 0 bicis restantes". Uses the language of
      * Transit's own word, since the title is in Transit's language, not the plugin's.
      */
     fun withBikesLeft(title: String): String {
         val m = BIKES.matchEntire(title) ?: return title
         val n = m.groupValues[1].toIntOrNull() ?: return title
         val spanish = m.groupValues[2].startsWith("bici", ignoreCase = true)
-        return when {
+        val text = when {
             !spanish -> "$title left"
             n == 1 -> "$title restante"
             else -> "$title restantes"
         }
+        return if (n < FEW_BIKES) "$CAUTION $text" else text
     }
 
     /** Same text and same kind of icons (bitmaps are redrawn every time, so compare what they show). */

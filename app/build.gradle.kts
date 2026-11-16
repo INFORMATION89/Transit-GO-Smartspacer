@@ -12,8 +12,8 @@ android {
         applicationId = "dev.marco.smartspacer.transitgo"
         minSdk = 29
         targetSdk = 36
-        versionCode = 120
-        versionName = "1.2"
+        versionCode = 10300
+        versionName = "1.3.0"
     }
 
     buildTypes {
@@ -47,5 +47,7 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2025.10.00"))
     implementation("androidx.compose.material3:material3:1.5.0-rc01")
     implementation("androidx.compose.material:material-icons-extended")
+    // Blurred, translucent header over the list (backdrop blur on Android 12+, a tint before)
+    implementation("dev.chrisbanes.haze:haze:1.7.3")
     implementation("androidx.activity:activity-compose:1.11.0")
 }

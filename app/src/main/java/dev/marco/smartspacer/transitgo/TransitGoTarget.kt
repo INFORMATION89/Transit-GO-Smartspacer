@@ -29,6 +29,9 @@ fun cardSubtitle(state: GoState, settings: Settings): String? {
     return parts.filterNotNull().joinToString(" · ").takeIf { it.isNotEmpty() }
 }
 
+/** Divider between the subtitle and "[logo] Transit" */
+const val SOURCE_BULLET = " ·"
+
 /** Past this many characters the subtitle is likely to be cut off on the card */
 private const val LONG_LINE = 16
 
@@ -73,7 +76,9 @@ class TransitGoTarget : SmartspacerTargetProvider() {
                 ComponentName(ctx, TransitGoTarget::class.java),
                 SmartspaceTarget.FEATURE_UNDEFINED,
                 Text(state.title),
-                cardSubtitle(state, settings)?.let { Text(it) },
+                // A bullet at the end divides it from "[logo] Transit", which Smartspacer draws
+                // right after the subtitle
+                cardSubtitle(state, settings)?.let { Text(if (source != null) it + SOURCE_BULLET else it) },
                 icon,
                 openTrip,
                 source

@@ -21,11 +21,17 @@
     </plurals>
     <string name="sample_walk_to">Walk to %s</string>
     <string-array name="sample_stops">
-        <item>Main St &amp; 5th Ave</item>
-        <item>Central Station</item>
-        <item>City Hall</item>
-        <item>Riverside Park</item>
-        <item>Union Square</item>
-        <item>Harbor Terminal</item>
+        <item>Union Station</item>
+        <item>Metro Center</item>
+        <item>Dupont Circle</item>
+        <item>Pennsylvania Ave &amp; 14th St</item>
+        <item>Foggy Bottom</item>
+        <item>L\'Enfant Plaza</item>
+        <item>Times Sq-42 St</item>
+        <item>Grand Central</item>
+        <item>Union Sq</item>
+        <item>Clark/Lake</item>
+        <item>Navy Pier</item>
+        <item>Wrigley Field</item>
     </string-array>
 </resources>
