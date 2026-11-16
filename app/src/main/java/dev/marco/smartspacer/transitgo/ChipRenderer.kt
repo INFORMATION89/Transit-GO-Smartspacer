@@ -78,7 +78,7 @@ object ChipRenderer {
         ?.takeIf { it.visibility == View.VISIBLE }?.text?.toString()?.trim()?.takeIf { it.isNotEmpty() }
 
     private fun View.findByName(name: String): View? {
-        val id = resources.getIdentifier(name, "id", TransitGoListener.TRANSIT_PACKAGE)
+        val id = resources.getIdentifier(name, "id", TransitGoNotificationProvider.TRANSIT_PACKAGE)
         return if (id == 0) null else findViewById(id)
     }
 

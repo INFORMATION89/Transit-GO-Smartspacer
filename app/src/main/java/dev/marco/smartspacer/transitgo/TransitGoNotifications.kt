@@ -2,19 +2,22 @@ package dev.marco.smartspacer.transitgo
 
 import android.app.Notification
 import android.app.PendingIntent
+import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
-import android.service.notification.NotificationListenerService
+import android.os.Handler
+import android.os.Looper
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.kieronquinn.app.smartspacer.sdk.provider.SmartspacerNotificationProvider
 import com.kieronquinn.app.smartspacer.sdk.provider.SmartspacerTargetProvider
 
 /** The live GO trip, as read from Transit's notification. */
 data class GoState(
-    /** e.g. "Sal en 5 minutos" */
+    /** Transit's instruction, e.g. "Sal en 5 minutos" / "Leave in 5 min" */
     val title: String,
     /** The next step, e.g. "en 16 minutos" */
     val text: String?,
@@ -39,41 +42,61 @@ object GoStore {
     var state by mutableStateOf<GoState?>(null)
 }
 
+/**
+ * Gets Transit's notifications through **Smartspacer's** notification listener, so the plugin
+ * doesn't need notification access of its own. Smartspacer calls [onNotificationsChanged] with
+ * all of Transit's current notifications whenever they change (only while the Transit GO Target
+ * is added).
+ */
+class TransitGoNotificationProvider : SmartspacerNotificationProvider() {
+
+    override fun getConfig(smartspacerId: String) = Config(setOf(TRANSIT_PACKAGE))
+
+    override fun onNotificationsChanged(
+        smartspacerId: String,
+        isListenerEnabled: Boolean,
+        notifications: List<StatusBarNotification>
+    ) {
+        val context = provideContext()
+        // Called on a binder thread: read and render Transit's layout on the main thread
+        main.post { TripReader.onNotifications(context, isListenerEnabled, notifications) }
+    }
+
+    companion object {
+        const val AUTHORITY = "dev.marco.smartspacer.transitgo.notifications"
+        const val TRANSIT_PACKAGE = "com.thetransitapp.droid"
+        const val GO_CHANNEL = "go_mode"
+        private val main = Handler(Looper.getMainLooper())
+    }
+}
+
+/** Turns Transit's notifications into the [GoState] the card shows. */
 // bigContentView is deprecated for apps building notifications, but it's the only way to
 // read another app's custom expanded layout
 @Suppress("DEPRECATION")
-class TransitGoListener : NotificationListenerService() {
+object TripReader {
+    private const val TAG = "TransitGo"
 
-    private val isDebug by lazy { applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0 }
     /** Debug: last layout "shape" dumped, so each new kind of step (walk, bike...) gets dumped once */
     private var lastDumped: String? = null
     private var dumpCount = 0
 
-    override fun onListenerConnected() {
-        // Pick up a trip that was already running before we connected
-        activeNotifications?.forEach { onNotificationPosted(it) }
-    }
-
-    override fun onNotificationPosted(sbn: StatusBarNotification) {
-        if (sbn.packageName != TRANSIT_PACKAGE || sbn.notification.channelId != GO_CHANNEL) return
-        if (isDebug) logGoNotification(sbn)
-        if (isLiveTrip(sbn)) update(sbn)
-    }
-
-    override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        if (sbn.key == GoStore.state?.notificationKey) clearTrip()
-    }
-
-    // Notification access turned off (or the system unbinding us): we'd stop hearing about
-    // the trip, so don't leave its last state stuck on the card
-    override fun onListenerDisconnected() {
-        if (GoStore.state != null) clearTrip()
-    }
-
-    private fun clearTrip() {
-        GoStore.state = null
-        SampleTrip.reroll() // the settings preview shows a fresh example from now on
-        notifyTarget()
+    fun onNotifications(context: Context, isListenerEnabled: Boolean, notifications: List<StatusBarNotification>) {
+        val isDebug = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+        val go = notifications.filter {
+            it.packageName == TransitGoNotificationProvider.TRANSIT_PACKAGE &&
+                it.notification.channelId == TransitGoNotificationProvider.GO_CHANNEL
+        }
+        if (isDebug) {
+            Log.d(TAG, "notifications: listener=$isListenerEnabled transit=${notifications.size} go=${go.size}")
+            go.forEach { logGoNotification(it) }
+        }
+        val live = go.firstOrNull { isLiveTrip(it) }
+        when {
+            // Smartspacer's listener off, or the trip ended: don't leave the last trip on the card
+            !isListenerEnabled || live == null -> if (GoStore.state != null) clearTrip(context)
+            else -> update(context, live, isDebug)
+        }
     }
 
     /**
@@ -86,7 +109,13 @@ class TransitGoListener : NotificationListenerService() {
             flags and Notification.FLAG_FOREGROUND_SERVICE != 0
     }
 
-    private fun update(sbn: StatusBarNotification) {
+    private fun clearTrip(context: Context) {
+        GoStore.state = null
+        SampleTrip.reroll() // the settings preview shows a fresh example from now on
+        notifyTarget(context)
+    }
+
+    private fun update(context: Context, sbn: StatusBarNotification, isDebug: Boolean) {
         val n = sbn.notification
         // Transit's own text, in whatever language Transit uses ("Sal en 5 minutos", "Leave in 5 min").
         // Trimmed: on bike steps it's " 0 bicis", with a space where Transit draws an inline icon
@@ -97,7 +126,7 @@ class TransitGoListener : NotificationListenerService() {
         val text = (n.extras.getCharSequence(Notification.EXTRA_TEXT)
             ?: n.extras.getCharSequence(Notification.EXTRA_SUB_TEXT))?.toString()?.trim()?.takeIf { it.isNotEmpty() }
 
-        val r = ChipRenderer.render(this, n.bigContentView)
+        val r = ChipRenderer.render(context, n.bigContentView)
 
         if (isDebug) {
             Log.d(TAG, "update: title=$title text=$text route=${r?.routeName} chip=${r?.chip != null} " +
@@ -107,7 +136,7 @@ class TransitGoListener : NotificationListenerService() {
             val shape = "${title.substringBefore(' ')}|${r?.routeName != null}|${r?.chip != null}"
             if (shape != lastDumped) {
                 lastDumped = shape
-                LayoutDumper.dump(this, n.bigContentView, "big${dumpCount++}")
+                LayoutDumper.dump(context, n.bigContentView, "big${dumpCount++}")
             }
         }
 
@@ -131,7 +160,7 @@ class TransitGoListener : NotificationListenerService() {
             return
         }
         GoStore.state = new
-        notifyTarget()
+        notifyTarget(context)
     }
 
     /** Same text and same kind of icons (bitmaps are redrawn every time, so compare what they show). */
@@ -151,12 +180,6 @@ class TransitGoListener : NotificationListenerService() {
             "custom=${n.bigContentView != null}")
     }
 
-    private fun notifyTarget() =
-        SmartspacerTargetProvider.notifyChange(this, TransitGoTarget::class.java)
-
-    companion object {
-        const val TAG = "TransitGo"
-        const val TRANSIT_PACKAGE = "com.thetransitapp.droid"
-        const val GO_CHANNEL = "go_mode"
-    }
+    private fun notifyTarget(context: Context) =
+        SmartspacerTargetProvider.notifyChange(context, TransitGoTarget::class.java)
 }

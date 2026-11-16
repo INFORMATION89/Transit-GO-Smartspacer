@@ -23,16 +23,12 @@
             </intent-filter>
         </activity>
 
-        <!-- Reads only Transit's "go_mode" notifications -->
-        <service
-            android:name=".TransitGoListener"
-            android:exported="false"
-            android:label="@string/app_name"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
-            </intent-filter>
-        </service>
+        <!-- Gets Transit's notifications through Smartspacer's own notification listener -->
+        <provider
+            android:name=".TransitGoNotificationProvider"
+            android:authorities="dev.marco.smartspacer.transitgo.notifications"
+            android:exported="true"
+            android:permission="com.kieronquinn.app.smartspacer.permission.ACCESS_SMARTSPACER_NOTIFICATIONS" />
 
         <!-- Smartspacer target -->
         <provider

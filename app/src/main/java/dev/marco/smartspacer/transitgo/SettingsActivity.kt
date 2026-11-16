@@ -2,12 +2,12 @@ package dev.marco.smartspacer.transitgo
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.lerp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.painterResource
 import android.os.Bundle
 import android.provider.Settings as AndroidSettings
@@ -114,6 +114,13 @@ class SettingsActivity : ComponentActivity() {
 
     private companion object {
         const val SOURCE_URL = "https://github.com/INFORMATION89/Transit-GO-Smartspacer"
+        const val FOOTER_KEY = "footer"
+        const val SMARTSPACER_PACKAGE = "com.kieronquinn.app.smartspacer"
+        /** Scroll distance over which the Source code chip grows from smallest to full size */
+        val FOOTER_GROW = 120.dp
+        /** Fixed footer height (top gap + largest chip + growing room), so the chip growing
+         *  never changes the list's length while you scroll */
+        val FOOTER_HEIGHT = 28.dp + 64.dp + FOOTER_GROW
     }
 
     private var accessGranted by mutableStateOf(false)
@@ -128,8 +135,9 @@ class SettingsActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Refresh when coming back from the notification access screen
-        accessGranted = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
+        // Refresh when coming back from the notification access screen. The plugin reads Transit
+        // through Smartspacer's notification listener, so that's the access that matters.
+        accessGranted = NotificationManagerCompat.getEnabledListenerPackages(this).contains(SMARTSPACER_PACKAGE)
     }
 
     /** Saves a change, redraws the preview and tells Smartspacer to redraw the card. */
@@ -161,6 +169,17 @@ class SettingsActivity : ComponentActivity() {
             }
         ) { padding ->
             val listState = rememberLazyListState()
+            // 0 while the footer's growing room is still below the screen, 1 when scrolled all
+            // the way to the end; follows the scroll position continuously
+            val growPx = with(LocalDensity.current) { FOOTER_GROW.toPx() }
+            val footerProgress by remember(growPx) {
+                derivedStateOf {
+                    val info = listState.layoutInfo
+                    val footer = info.visibleItemsInfo.lastOrNull { it.key == FOOTER_KEY } ?: return@derivedStateOf 0f
+                    val hidden = footer.offset + footer.size - (info.viewportEndOffset - info.afterContentPadding)
+                    (1f - hidden / growPx).coerceIn(0f, 1f)
+                }
+            }
             LazyColumn(
                 state = listState,
                 contentPadding = PaddingValues(
@@ -201,10 +220,12 @@ class SettingsActivity : ComponentActivity() {
                     ) { startActivity(Intent(AndroidSettings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
                 }
 
-                // Minimized until you scroll all the way to the end; the extra space below it is
-                // the "bit more" to scroll that expands it
-                item { SourceChip(expanded = !listState.canScrollForward) }
-                item { Spacer(Modifier.height(72.dp)) }
+                // Grows as you scroll through the last stretch of the screen (see SourceChip)
+                item(key = FOOTER_KEY) {
+                    Box(Modifier.fillMaxWidth().height(FOOTER_HEIGHT)) {
+                        SourceChip(footerProgress, Modifier.align(Alignment.TopCenter).padding(top = 28.dp))
+                    }
+                }
             }
         }
     }
@@ -387,39 +408,45 @@ class SettingsActivity : ComponentActivity() {
 
     /**
      * "[GitHub] Source code" chip at the bottom, opening the repo in the browser.
-     * Minimized to just the GitHub icon until [expanded] (scrolled all the way down), then the
-     * label springs out from behind the icon.
+     * At [progress] 0 it's a small chip; it grows with the scroll position until, at 1 (scrolled
+     * all the way down), it's a full-width button: taller, bigger icon and text, tinted color.
      */
     @Composable
-    private fun SourceChip(expanded: Boolean) = Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier.fillMaxWidth().padding(top = 28.dp)
-    ) {
-        val label = stringResource(R.string.source_code)
+    private fun SourceChip(progress: Float, modifier: Modifier) {
+        val colors = MaterialTheme.colorScheme
+        val p = progress
         Surface(
             onClick = { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SOURCE_URL))) },
             shape = RoundedCornerShape(50),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            modifier = Modifier.semantics { contentDescription = label }
+            color = lerp(colors.surfaceContainerHigh, colors.primaryContainer, p),
+            contentColor = lerp(colors.onSurface, colors.onPrimaryContainer, p),
+            border = BorderStroke(1.dp, lerp(colors.outlineVariant, colors.primary.copy(alpha = 0.5f), p)),
+            modifier = modifier
+                .fillMaxWidth()
+                // Width goes from the chip's natural width to the full row
+                .layout { measurable, constraints ->
+                    val natural = measurable.maxIntrinsicWidth(constraints.maxHeight)
+                    val w = (natural + (constraints.maxWidth - natural) * p).toInt()
+                        .coerceIn(natural.coerceAtMost(constraints.maxWidth), constraints.maxWidth)
+                    val placeable = measurable.measure(constraints.copy(minWidth = w, maxWidth = w))
+                    layout(constraints.maxWidth, placeable.height) {
+                        placeable.place((constraints.maxWidth - w) / 2, 0)
+                    }
+                }
+                .height(lerp(40.dp, 64.dp, p))
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(10.dp)
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
             ) {
-                Icon(painterResource(R.drawable.ic_github), null, Modifier.size(20.dp))
-                AnimatedVisibility(
-                    visible = expanded,
-                    enter = expandHorizontally(springy(), expandFrom = Alignment.Start) + fadeIn(tween(250, delayMillis = 60)),
-                    exit = shrinkHorizontally(tween(200), shrinkTowards = Alignment.Start) + fadeOut(tween(120))
-                ) {
-                    Text(
-                        label,
-                        style = MaterialTheme.typography.labelLarge,
-                        maxLines = 1,
-                        modifier = Modifier.padding(start = 8.dp, end = 4.dp)
-                    )
-                }
+                Icon(painterResource(R.drawable.ic_github), null, Modifier.size(lerp(18.dp, 26.dp, p)))
+                Spacer(Modifier.size(lerp(8.dp, 12.dp, p)))
+                Text(
+                    stringResource(R.string.source_code),
+                    style = MaterialTheme.typography.labelLarge.copy(fontSize = lerp(14.sp, 18.sp, p)),
+                    maxLines = 1
+                )
             }
         }
     }
