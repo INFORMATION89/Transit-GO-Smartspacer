@@ -1,7 +1,8 @@
 package dev.marco.smartspacer.transitgo
 
 import android.content.Intent
-import android.net.Uri
+import android.os.Build
+import androidx.core.net.toUri
 import androidx.compose.animation.core.animate
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.geometry.Rect
@@ -83,6 +84,8 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.Typography
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.toShape
@@ -130,6 +133,9 @@ class SettingsActivity : ComponentActivity() {
         val PULL_TO_OPEN = 220.dp
         /** Share of the pull spent growing the chip into a full-width button (the rest fills the screen) */
         const val CHIP_PHASE = 0.35f
+        /** Source code label size on the full-width button and on the full screen (1 = chip) */
+        const val LABEL_FULL_BUTTON = 1.3f
+        const val LABEL_FULL_SCREEN = 2.2f
         /** Footer height: top gap + the largest chip, so the chip growing never changes the
          *  list's length (the chip sits at the bottom of it) */
         val FOOTER_HEIGHT = 28.dp + 64.dp
@@ -158,6 +164,8 @@ class SettingsActivity : ComponentActivity() {
         }
     }
 
+    private fun openSource() = startActivity(Intent(Intent.ACTION_VIEW, SOURCE_URL.toUri()))
+
     /** Opens the plugin's own notification access switch (or the full list if that page is missing). */
     private fun openNotificationAccess() {
         val detail = Intent(AndroidSettings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS).putExtra(
@@ -182,11 +190,18 @@ class SettingsActivity : ComponentActivity() {
     private fun SettingsScreen() {
         val settings = remember { Settings(this) }
         val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-        val pullToOpen = rememberPullToOpen { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SOURCE_URL))) }
+        val pullToOpen = rememberPullToOpen { openSource() }
         // Pull phases: first the chip grows into a full-width button, then that button grows
-        // until it fills the whole screen, and the repo opens
-        val chipPhase = (pullToOpen.progress / CHIP_PHASE).coerceIn(0f, 1f)
-        val takeover = ((pullToOpen.progress - CHIP_PHASE) / (1f - CHIP_PHASE)).coerceIn(0f, 1f)
+        // until it fills the whole screen, and the repo opens. A light spring follows the finger,
+        // smoothing out uneven touch events, and each phase is eased so it starts and settles
+        // gently instead of moving at a constant rate.
+        val progress by animateFloatAsState(
+            pullToOpen.progress,
+            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+            label = "pull"
+        )
+        val chipPhase = FastOutSlowInEasing.transform((progress / CHIP_PHASE).coerceIn(0f, 1f))
+        val takeover = FastOutSlowInEasing.transform(((progress - CHIP_PHASE) / (1f - CHIP_PHASE)).coerceIn(0f, 1f))
         var chipBounds by remember { mutableStateOf<Rect?>(null) }
         Box(Modifier.fillMaxSize()) {
         Scaffold(
@@ -288,17 +303,8 @@ class SettingsActivity : ComponentActivity() {
                     layout(c.maxWidth, c.maxHeight) { placeable.place(left.roundToInt(), top.roundToInt()) }
                 }
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Icon(painterResource(R.drawable.ic_github), null, Modifier.size(lerp(26.dp, 56.dp, t)))
-                Spacer(Modifier.size(lerp(12.dp, 18.dp, t)))
-                Text(
-                    stringResource(R.string.source_code),
-                    style = MaterialTheme.typography.labelLarge.copy(fontSize = lerp(18.sp, 30.sp, t)),
-                    maxLines = 1
-                )
+            Box(contentAlignment = Alignment.Center) {
+                SourceLabel(scale = LABEL_FULL_BUTTON + (LABEL_FULL_SCREEN - LABEL_FULL_BUTTON) * t)
             }
         }
     }
@@ -389,7 +395,7 @@ class SettingsActivity : ComponentActivity() {
                             }
                         }
                         Spacer(Modifier.size(8.dp))
-                        // Subtitle change (e.g. "· 3 h 07 min" -> "· 6:44 a.m."): the text
+                        // Subtitle change (e.g. "· 3 h 07 min" -> "· 6:44 AM"): the text
                         // cross-fades while its width springs to the new size, so the Transit
                         // logo after it slides smoothly instead of jumping
                         AnimatedContent(
@@ -548,7 +554,7 @@ class SettingsActivity : ComponentActivity() {
         val colors = MaterialTheme.colorScheme
         val p = progress
         Surface(
-            onClick = { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SOURCE_URL))) },
+            onClick = { openSource() },
             shape = RoundedCornerShape(50),
             color = lerp(colors.surfaceContainerHigh, colors.primaryContainer, p),
             contentColor = lerp(colors.onSurface, colors.onPrimaryContainer, p),
@@ -567,20 +573,24 @@ class SettingsActivity : ComponentActivity() {
                 }
                 .height(lerp(40.dp, 64.dp, p))
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            ) {
-                Icon(painterResource(R.drawable.ic_github), null, Modifier.size(lerp(18.dp, 26.dp, p)))
-                Spacer(Modifier.size(lerp(8.dp, 12.dp, p)))
-                Text(
-                    stringResource(R.string.source_code),
-                    style = MaterialTheme.typography.labelLarge.copy(fontSize = lerp(14.sp, 18.sp, p)),
-                    maxLines = 1
-                )
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 16.dp)) {
+                SourceLabel(scale = 1f + (LABEL_FULL_BUTTON - 1f) * p)
             }
         }
+    }
+
+    /**
+     * "[GitHub] Source code", laid out once at its smallest size and enlarged with [scale] on the
+     * GPU, so growing it doesn't re-measure the text on every frame.
+     */
+    @Composable
+    private fun SourceLabel(scale: Float) = Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.graphicsLayer { scaleX = scale; scaleY = scale }
+    ) {
+        Icon(painterResource(R.drawable.ic_github), null, Modifier.size(18.dp))
+        Spacer(Modifier.size(8.dp))
+        Text(stringResource(R.string.source_code), style = MaterialTheme.typography.labelLarge, maxLines = 1)
     }
 
     @Composable
@@ -736,7 +746,13 @@ class SettingsActivity : ComponentActivity() {
 @Composable
 private fun SettingsTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
-    val colors = if (isSystemInDarkTheme()) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    val dark = isSystemInDarkTheme()
+    // Wallpaper colors need Android 12; older versions get the standard Material colors
+    val colors = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        dark -> darkColorScheme()
+        else -> lightColorScheme()
+    }
     MaterialExpressiveTheme(
         colorScheme = colors,
         motionScheme = MotionScheme.expressive(),

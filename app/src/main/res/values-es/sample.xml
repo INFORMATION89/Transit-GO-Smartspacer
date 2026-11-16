@@ -3,20 +3,24 @@
 <resources>
     <plurals name="sample_leave_in">
         <item quantity="one">Sal en %d minuto</item>
+        <item quantity="many">Sal en %d minutos</item>
         <item quantity="other">Sal en %d minutos</item>
     </plurals>
     <plurals name="sample_in_minutes">
         <item quantity="one">en %d minuto</item>
+        <item quantity="many">en %d minutos</item>
         <item quantity="other">en %d minutos</item>
     </plurals>
     <plurals name="sample_get_off_in">
         <item quantity="one">Baja en %d parada</item>
+        <item quantity="many">Baja en %d paradas</item>
         <item quantity="other">Baja en %d paradas</item>
     </plurals>
     <string name="sample_walk">Camina %d min</string>
     <string name="sample_to">hasta %s</string>
     <plurals name="sample_bikes">
         <item quantity="one">%d bici</item>
+        <item quantity="many">%d bicis</item>
         <item quantity="other">%d bicis</item>
     </plurals>
     <string name="sample_walk_to">Camina hasta %s</string>

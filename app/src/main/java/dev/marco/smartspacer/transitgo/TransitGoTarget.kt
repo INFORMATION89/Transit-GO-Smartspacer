@@ -13,7 +13,7 @@ import com.kieronquinn.app.smartspacer.sdk.utils.TargetTemplate
 
 /**
  * The card's subtitle: Transit's next step (or, when there's none, as on bike-station steps,
- * the line above the title like "Camina hasta CE-186 …"), and the arrival time or time left,
+ * the line above the title like "Walk to Central Station"), and the arrival time or time left,
  * joined with " · ". The time goes first when the line is long.
  */
 fun cardSubtitle(state: GoState, settings: Settings): String? {
@@ -24,7 +24,7 @@ fun cardSubtitle(state: GoState, settings: Settings): String? {
     }
     val base = state.text ?: state.previous
     // Long lines get cut off at the end, so put the short time first:
-    //   "en 16 minutos · 6:44 a.m."  but  "16 min · Camina hasta CE-186 Gob. Gregorio…"
+    //   "in 16 minutes · 6:44 AM"  but  "16 min · Walk to Main St & 5th Ave…"
     val parts = if ((base?.length ?: 0) > LONG_LINE) listOf(extra, base) else listOf(base, extra)
     return parts.filterNotNull().joinToString(" · ").takeIf { it.isNotEmpty() }
 }

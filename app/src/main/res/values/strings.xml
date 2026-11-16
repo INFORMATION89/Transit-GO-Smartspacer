@@ -11,7 +11,7 @@
     <string name="setting_chip_title">Use colorful chip</string>
     <string name="setting_chip_summary">Shows Transit\'s colored route chip on the card instead of the step icon.</string>
     <string name="setting_extra_title">Show After Next Step</string>
-    <string name="setting_extra_summary">Adds the arrival time (· 6:12 a.m.) or the time left in the trip (· 4 h 00 min)</string>
+    <string name="setting_extra_summary">Adds the arrival time (· 6:12 AM) or the time left in the trip (· 4 h 00 min)</string>
     <string name="setting_extra_arrival">Arrival Time</string>
     <string name="setting_extra_time_left">Time left</string>
     <string name="setting_extra_none">Off</string>

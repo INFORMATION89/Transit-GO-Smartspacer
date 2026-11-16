@@ -15,9 +15,9 @@ import com.kieronquinn.app.smartspacer.sdk.provider.SmartspacerTargetProvider
 
 /** The live GO trip, as read from Transit's notification. */
 data class GoState(
-    /** Transit's instruction, e.g. "Sal en 5 minutos" / "Leave in 5 min" */
+    /** Transit's instruction, e.g. "Leave in 5 minutes" */
     val title: String,
-    /** The next step, e.g. "en 16 minutos" */
+    /** The next step, e.g. "in 16 minutes" */
     val text: String?,
     val contentIntent: PendingIntent?,
     /** Transit's route chip (e.g. green "57-A"), or a bike/other chip, drawn on a square */
@@ -25,11 +25,11 @@ data class GoState(
     val routeName: String? = null,
     /** Transit's icon for the current step (wait, walk, ride, bike...) */
     val stepIcon: Bitmap? = null,
-    /** Arrival time, e.g. "6:44 a.m." */
+    /** Arrival time, e.g. "6:44 AM" */
     val arrival: String? = null,
     /** Time left in the trip, e.g. "3 h 07 min" */
     val timeLeft: String? = null,
-    /** Transit's small line above the title, e.g. "Camina hasta CE-186 …" on bike-station steps */
+    /** Transit's small line above the title, e.g. "Walk to Central Station" on bike-station steps */
     val previous: String? = null,
     /** Key of Transit's GO notification, so Native Smartspace can hide it on the lock screen */
     val notificationKey: String? = null
@@ -129,11 +129,11 @@ object TripReader {
 
     private fun update(context: Context, sbn: StatusBarNotification, isDebug: Boolean) {
         val n = sbn.notification
-        // Transit's own text, in whatever language Transit uses ("Sal en 5 minutos", "Leave in 5 min").
-        // Trimmed: on bike steps it's " 0 bicis", with a space where Transit draws an inline icon
+        // Transit's own text, in whatever language Transit uses (e.g. "Leave in 5 minutes").
+        // Trimmed: on bike steps it's " 0 bikes", with a space where Transit draws an inline icon
         val title = n.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()
             ?.takeIf { it.isNotEmpty() } ?: "Transit GO"
-        // Observed: text = null and subText = the next step ("en 16 minutos"); the details are
+        // Observed: text = null and subText = the next step ("in 16 minutes"); the details are
         // in the custom layout, which ChipRenderer reads
         val text = (n.extras.getCharSequence(Notification.EXTRA_TEXT)
             ?: n.extras.getCharSequence(Notification.EXTRA_SUB_TEXT))?.toString()?.trim()?.takeIf { it.isNotEmpty() }
@@ -144,7 +144,7 @@ object TripReader {
             Log.d(TAG, "update: title=$title text=$text route=${r?.routeName} chip=${r?.chip != null} " +
                 "step=${r?.stepIcon != null} arrival=${r?.arrival} left=${r?.timeLeft} previous=${r?.previous}")
             // Dump the layout again whenever the kind of step changes (first word of the
-            // title, e.g. "Sal" / "Camina" / "Pedalea", plus whether there's a route name)
+            // title, e.g. "Leave" / "Walk" / "Ride", plus whether there's a route name)
             val shape = "${title.substringBefore(' ')}|${r?.routeName != null}|${r?.chip != null}"
             if (shape != lastDumped) {
                 lastDumped = shape
