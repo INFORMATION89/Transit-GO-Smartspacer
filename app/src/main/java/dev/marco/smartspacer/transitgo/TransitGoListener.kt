@@ -88,6 +88,7 @@ class TransitGoListener : NotificationListenerService() {
 
     private fun update(sbn: StatusBarNotification) {
         val n = sbn.notification
+        // Transit's own text, in whatever language Transit uses ("Sal en 5 minutos", "Leave in 5 min").
         // Trimmed: on bike steps it's " 0 bicis", with a space where Transit draws an inline icon
         val title = n.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()
             ?.takeIf { it.isNotEmpty() } ?: "Transit GO"

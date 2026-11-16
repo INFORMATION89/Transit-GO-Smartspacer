@@ -70,10 +70,16 @@ Each one is drawn at 3× into a square bitmap (Smartspacer squeezes icons into a
 
 **Hiding the notification.** Same approach as the Uber plugin: the card sets `sourceNotificationKey` to the GO notification's key. With Smartspacer's Native Smartspace, the lock screen hides that notification while the card is first. Nothing is cancelled or dismissed, so Transit's trip keeps running. Swiping the card away does nothing to the notification, because cancelling Transit's foreground service could break the trip.
 
+## Languages
+
+The card always shows Transit's own text, so it's in whatever language Transit uses (English, Spanish or any other). Arrival times are recognized in any language and clock format ("Arrive at 6:44 PM", "Llegada a las 6:44 a.m.", "18:44").
+
+The settings screen is in English. The example trip in its preview follows the plugin's language: English, or Spanish on a Spanish phone. If you set Transit to a different language than your phone (Android's per-app **App languages**), you can set the plugin to the same language there so the example matches.
+
 ## Limitations
 
 - The route chip and step icon depend on Transit's internal view ids. A Transit update can rename them; the card then falls back to the bus icon until the ids are updated in `ChipRenderer.kt`.
-- Only tested with Transit 6.3.7 on a Pixel 7 (Android 17), in Spanish.
+- Only tested with Transit 6.3.7 on a Pixel 7 (Android 17), with live trips in Spanish. English trip text goes through the same code, but hasn't been seen on a live trip yet.
 - The hiding only works with Native Smartspace and only on the lock screen; the notification always stays in the shade.
 - The plugin has its own notification listener, so it needs its own notification access (unlike the Uber plugin, which uses Smartspacer's).
 

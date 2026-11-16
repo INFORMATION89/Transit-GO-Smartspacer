@@ -13,7 +13,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.drawable.toBitmap
-import java.time.LocalTime
+import android.text.format.DateFormat
+import androidx.annotation.PluralsRes
+import java.util.Date
 import kotlin.random.Random
 
 /**
@@ -43,48 +45,49 @@ object SampleTrip {
         "105" to 0xFF283593, "R" to 0xFFF9A825
     )
 
-    private val stops = listOf(
-        "Av. Reforma", "Insurgentes Sur", "Estación Centro", "Parque Hundido",
-        "Glorieta Colón", "CE-186 Gob. Gregorio V. Gelati"
-    )
-
     fun create(context: Context): GoState {
+        val res = context.resources
         val (route, color) = routes.random()
         val chip = drawChip(route, color.toInt(), randomShape(route))
         val tripMinutes = Random.nextInt(15, 181)
-        val arrival = clock(LocalTime.now().plusMinutes(tripMinutes.toLong()))
+        // Arrival in the phone's own clock format and language ("6:44 PM", "18:44", "6:44 p.m.")
+        val arrival = DateFormat.getTimeFormat(context)
+            .format(Date(System.currentTimeMillis() + tripMinutes * 60_000L))
         val timeLeft = duration(tripMinutes)
-        fun icon(@DrawableRes res: Int) = ContextCompat.getDrawable(context, res)?.toBitmap(96, 96)
+        val stop = res.getStringArray(R.array.sample_stops).random()
+        fun icon(@DrawableRes id: Int) = ContextCompat.getDrawable(context, id)?.toBitmap(96, 96)
+        fun plural(@PluralsRes id: Int, n: Int) = res.getQuantityString(id, n, n)
 
+        // Wording follows the phone's language, like Transit (English, or Spanish on a Spanish phone)
         return when (Random.nextInt(4)) {
-            // Waiting for the bus: "Sal en 7 minutos / [57-A] en 18 minutos"
+            // Waiting for the bus: "Leave in 7 minutes / [57-A] in 18 minutes"
             0 -> {
                 val leave = Random.nextInt(1, 21)
                 GoState(
-                    title = "Sal en ${minutes(leave)}", text = "en ${minutes(leave + Random.nextInt(5, 16))}",
+                    title = plural(R.plurals.sample_leave_in, leave),
+                    text = plural(R.plurals.sample_in_minutes, leave + Random.nextInt(5, 16)),
                     contentIntent = null, chip = chip, routeName = route, stepIcon = icon(R.drawable.ic_sample_wait),
                     arrival = arrival, timeLeft = timeLeft
                 )
             }
-            // On board: "Baja en 4 paradas / [12] en 9 minutos"
-            1 -> {
-                val stopsLeft = Random.nextInt(1, 13)
-                GoState(
-                    title = "Baja en $stopsLeft ${if (stopsLeft == 1) "parada" else "paradas"}",
-                    text = "en ${minutes(Random.nextInt(2, 30))}",
-                    contentIntent = null, chip = chip, routeName = route, stepIcon = icon(R.drawable.ic_transit_go),
-                    arrival = arrival, timeLeft = timeLeft
-                )
-            }
-            // Walking to the stop: "Camina 6 min / hasta Av. Reforma"
+            // On board: "Get off in 4 stops / [12] in 9 minutes"
+            1 -> GoState(
+                title = plural(R.plurals.sample_get_off_in, Random.nextInt(1, 13)),
+                text = plural(R.plurals.sample_in_minutes, Random.nextInt(2, 30)),
+                contentIntent = null, chip = chip, routeName = route, stepIcon = icon(R.drawable.ic_transit_go),
+                arrival = arrival, timeLeft = timeLeft
+            )
+            // Walking to the stop: "Walk 6 min / to Central Station"
             2 -> GoState(
-                title = "Camina ${Random.nextInt(2, 16)} min", text = "hasta ${stops.random()}",
+                title = res.getString(R.string.sample_walk, Random.nextInt(2, 16)),
+                text = res.getString(R.string.sample_to, stop),
                 contentIntent = null, chip = chip, routeName = route, stepIcon = icon(R.drawable.ic_sample_walk),
                 arrival = arrival, timeLeft = timeLeft
             )
-            // Bike station (like Transit's real one): "3 bicis / Camina hasta …", no route chip
+            // Bike station (like Transit's real one): "3 bikes / Walk to …", no route chip
             else -> GoState(
-                title = "${Random.nextInt(0, 16)} bicis", text = null, previous = "Camina hasta ${stops.random()}",
+                title = plural(R.plurals.sample_bikes, Random.nextInt(0, 16)), text = null,
+                previous = res.getString(R.string.sample_walk_to, stop),
                 contentIntent = null, stepIcon = icon(if (Random.nextBoolean()) R.drawable.ic_sample_walk else R.drawable.ic_sample_bike),
                 arrival = arrival, timeLeft = timeLeft
             )
@@ -94,14 +97,6 @@ object SampleTrip {
     /** Circles only fit short names like "2" or "L3" */
     private fun randomShape(route: String) =
         if (route.length <= 2) Shape.entries.random() else listOf(Shape.ROUNDED, Shape.PILL, Shape.SQUARE).random()
-
-    private fun minutes(n: Int) = if (n == 1) "1 minuto" else "$n minutos"
-
-    /** Transit's style: "6:44 a.m." */
-    private fun clock(t: LocalTime): String {
-        val h = (t.hour % 12).let { if (it == 0) 12 else it }
-        return "%d:%02d %s".format(h, t.minute, if (t.hour < 12) "a.m." else "p.m.")
-    }
 
     /** Transit's style: "16 min" or "3 h 07 min" */
     private fun duration(min: Int) =

@@ -34,8 +34,10 @@ object ChipRenderer {
         val previous: String?
     )
 
-    // A clock time like "6:12", "18:05", "6:12 a.m.", "6:12 PM"
-    private val TIME = Regex("""\d{1,2}:\d{2}(\s*[aApP]\.?\s?[mM]\.?)?""")
+    // A clock time in any language's label ("Llegada a las 6:12 a.m.", "Arrive at 6:12 PM",
+    // "Arrivée à 18:05"): "6:12", "18:05", "6:12 a.m.", "6:12 PM". The space before AM/PM can be
+    // a regular, non-breaking or narrow no-break space (Android 14+ time formatting).
+    private val TIME = Regex("""\d{1,2}:\d{2}([\s  ]*[aApP]\.?[\s  ]?[mM]\.?)?""")
 
     fun render(context: Context, rv: RemoteViews?): Rendered? {
         if (rv == null) return null
@@ -56,7 +58,7 @@ object ChipRenderer {
             val stepView = (root.findByName("image") as? ImageView)
                 ?.takeIf { it.visibility == View.VISIBLE && it.width > 0 && it.drawable != null }
 
-            // Bottom-left label, e.g. "Llegada a las 6:12 a.m."; keep just the time
+            // Bottom-left label, e.g. "Llegada a las 6:12 a.m." / "Arrive at 6:12 PM"; keep just the time
             val arrivalLabel = (root.findByName("leftTextView") as? TextView)
                 ?.takeIf { it.visibility == View.VISIBLE }?.text?.toString()
             val arrival = arrivalLabel?.let { TIME.find(it)?.value?.trim() }

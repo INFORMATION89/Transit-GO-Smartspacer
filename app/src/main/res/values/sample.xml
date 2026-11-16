@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Text of the example trip in the settings preview, worded like Transit (English) -->
+<resources>
+    <plurals name="sample_leave_in">
+        <item quantity="one">Leave in %d minute</item>
+        <item quantity="other">Leave in %d minutes</item>
+    </plurals>
+    <plurals name="sample_in_minutes">
+        <item quantity="one">in %d minute</item>
+        <item quantity="other">in %d minutes</item>
+    </plurals>
+    <plurals name="sample_get_off_in">
+        <item quantity="one">Get off in %d stop</item>
+        <item quantity="other">Get off in %d stops</item>
+    </plurals>
+    <string name="sample_walk">Walk %d min</string>
+    <string name="sample_to">to %s</string>
+    <plurals name="sample_bikes">
+        <item quantity="one">%d bike</item>
+        <item quantity="other">%d bikes</item>
+    </plurals>
+    <string name="sample_walk_to">Walk to %s</string>
+    <string-array name="sample_stops">
+        <item>Main St &amp; 5th Ave</item>
+        <item>Central Station</item>
+        <item>City Hall</item>
+        <item>Riverside Park</item>
+        <item>Union Square</item>
+        <item>Harbor Terminal</item>
+    </string-array>
+</resources>
