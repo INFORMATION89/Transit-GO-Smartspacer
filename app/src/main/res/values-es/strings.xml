@@ -21,6 +21,10 @@
     <string name="setting_access_on">Activado: el plugin solo lee la notificación GO de Transit</string>
     <string name="setting_access_off">Desactivado: toca para activarlo, o la tarjeta no aparecerá</string>
 
+    <string name="setting_timeline_title">Mostrar línea de tiempo (experimental)</string>
+    <string name="setting_timeline_summary">Muestra una barra con tu avance, la hora de llegada y el tiempo restante en la tarjeta.</string>
+    <string name="timeline_arrives">Llega a las %s</string>
+
     <!-- Vista previa -->
     <string name="preview_example">Viaje de ejemplo · inicia GO en Transit para ver el tuyo</string>
 

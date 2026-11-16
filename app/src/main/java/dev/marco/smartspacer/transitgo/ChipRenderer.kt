@@ -34,7 +34,12 @@ object ChipRenderer {
          * The small line above the title, e.g. "Walk to Central Station" on a bike-station step,
          * where the title is just the number of bikes and there's no next step
          */
-        val previous: String?
+        val previous: String?,
+        /**
+         * How far along the trip is, 0..1, from where Transit places your marker (view "avatar")
+         * along its timeline (view "indicatorContainer"). Null if that layout isn't there.
+         */
+        val progress: Float?
     )
 
     // A clock time inside a label in any language: "6:12", "18:05", "6:12 AM", "6:12 p.m.". The
@@ -69,12 +74,22 @@ object ChipRenderer {
                 // Bottom-left label ("Arrive at 6:12 AM"): keep just the time
                 arrival = root.visibleText("leftTextView")?.let { TIME.find(it)?.value?.trim() },
                 timeLeft = root.visibleText("rightTextView"),
-                previous = root.visibleText("previous_instruction")
+                previous = root.visibleText("previous_instruction"),
+                progress = root.markerProgress()
             )
         } catch (t: Throwable) {
             Log.w(TAG, "Couldn't render Transit's layout", t)
             null
         }
+    }
+
+    /** Position of Transit's marker along its timeline: 0 at the start, 1 at the end. */
+    private fun View.markerProgress(): Float? {
+        val container = findByName("indicatorContainer")?.takeIf { it.isVisible } ?: return null
+        val marker = container.findByName("avatar")?.takeIf { it.isVisible } ?: return null
+        val travel = container.width - marker.width
+        if (travel <= 0) return null
+        return (marker.left.toFloat() / travel).coerceIn(0f, 1f)
     }
 
     /** Trimmed text of a visible TextView, or null if it's hidden or empty. */

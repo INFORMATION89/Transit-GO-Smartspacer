@@ -31,6 +31,8 @@ data class GoState(
     val timeLeft: String? = null,
     /** Transit's small line above the title, e.g. "Walk to Central Station" on bike-station steps */
     val previous: String? = null,
+    /** How far along the trip is, 0..1, or null if unknown */
+    val progress: Float? = null,
     /** Key of Transit's GO notification, so Native Smartspace can hide it on the lock screen */
     val notificationKey: String? = null
 )
@@ -142,7 +144,8 @@ object TripReader {
 
         if (isDebug) {
             Log.d(TAG, "update: title=$title text=$text route=${r?.routeName} chip=${r?.chip != null} " +
-                "step=${r?.stepIcon != null} arrival=${r?.arrival} left=${r?.timeLeft} previous=${r?.previous}")
+                "step=${r?.stepIcon != null} arrival=${r?.arrival} left=${r?.timeLeft} previous=${r?.previous} " +
+            "progress=${r?.progress}")
             // Dump the layout again whenever the kind of step changes (first word of the
             // title, e.g. "Leave" / "Walk" / "Ride", plus whether there's a route name)
             val shape = "${title.substringBefore(' ')}|${r?.routeName != null}|${r?.chip != null}"
@@ -162,6 +165,7 @@ object TripReader {
             arrival = r?.arrival,
             timeLeft = r?.timeLeft,
             previous = r?.previous,
+            progress = r?.progress ?: timeProgress(sbn.key, r?.timeLeft),
             notificationKey = sbn.key
         )
         // Transit re-posts the notification often with nothing visible changed: skip those, so
@@ -194,9 +198,37 @@ object TripReader {
     }
 
     /** Same text and same kind of icons (bitmaps are redrawn every time, so compare what they show). */
+    /** Trip key and its time left when first seen, for [timeProgress] */
+    private var tripStart: Pair<String, Int>? = null
+
+    /**
+     * Fallback when Transit's marker can't be read: how much of the time left has passed since
+     * the plugin first saw this trip. Starts at 0 if the plugin only joins partway through.
+     */
+    private fun timeProgress(key: String, timeLeft: String?): Float? {
+        val left = timeLeft?.let(::parseMinutes) ?: return null
+        val start = tripStart?.takeIf { it.first == key }?.second
+            ?: left.also { tripStart = key to it }
+        if (start <= 0) return null
+        return (1f - left.toFloat() / start).coerceIn(0f, 1f)
+    }
+
+    private val HOURS = Regex("""(\d+)\s*h""")
+    private val MINUTES = Regex("""(\d+)\s*min""")
+
+    /** "3 h 07 min" -> 187, "26 min" -> 26, "1 h" -> 60 */
+    fun parseMinutes(text: String): Int? {
+        val h = HOURS.find(text)?.groupValues?.get(1)?.toIntOrNull()
+        val m = MINUTES.find(text)?.groupValues?.get(1)?.toIntOrNull()
+        if (h == null && m == null) return null
+        return (h ?: 0) * 60 + (m ?: 0)
+    }
+
     private fun GoState.looksSameAs(other: GoState) =
         title == other.title && text == other.text && previous == other.previous &&
             routeName == other.routeName && arrival == other.arrival && timeLeft == other.timeLeft &&
+            // Progress counts as changed once it moves by at least 1%
+            ((progress ?: -1f) - (other.progress ?: -1f)).let { it < 0.01f && it > -0.01f } &&
             notificationKey == other.notificationKey &&
             (chip == null) == (other.chip == null) && (stepIcon == null) == (other.stepIcon == null)
 

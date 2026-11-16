@@ -32,6 +32,14 @@ fun cardSubtitle(state: GoState, settings: Settings): String? {
 /** Past this many characters the subtitle is likely to be cut off on the card */
 private const val LONG_LINE = 16
 
+/** The timeline image for the card, or null if it's turned off or the progress is unknown. */
+fun timeline(context: android.content.Context, state: GoState, settings: Settings): android.graphics.Bitmap? {
+    if (!settings.showTimeline) return null
+    val progress = state.progress ?: return null
+    val chip = state.chip?.takeIf { settings.showRouteChip }
+    return TimelineRenderer.draw(context, state, progress, chip ?: state.stepIcon, markerIsChip = chip != null)
+}
+
 class TransitGoTarget : SmartspacerTargetProvider() {
 
     override fun getSmartspaceTargets(smartspacerId: String): List<SmartspaceTarget> {
@@ -65,6 +73,26 @@ class TransitGoTarget : SmartspacerTargetProvider() {
                 Text("Transit"),
                 openTrip
             ).create()
+        }
+
+        // Experimental: with a timeline, use Smartspacer's image card (title and subtitle above,
+        // the timeline image below). The image already shows Transit's logo.
+        timeline(ctx, state, settings)?.let { image ->
+            return listOf(
+                TargetTemplate.Image(
+                    ctx,
+                    "transit_go_$smartspacerId",
+                    ComponentName(ctx, TransitGoTarget::class.java),
+                    SmartspaceTarget.FEATURE_COMMUTE_TIME,
+                    Text(state.title),
+                    cardSubtitle(state, settings)?.let { Text(it) } ?: Text(""),
+                    icon,
+                    Icon(AndroidIcon.createWithBitmap(image), shouldTint = false),
+                    openTrip
+                ).create().apply {
+                    if (settings.hideNotification) sourceNotificationKey = state.notificationKey
+                }
+            )
         }
 
         return listOf(

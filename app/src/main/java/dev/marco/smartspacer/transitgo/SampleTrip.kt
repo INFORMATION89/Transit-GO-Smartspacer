@@ -54,6 +54,7 @@ object SampleTrip {
         val arrival = DateFormat.getTimeFormat(context)
             .format(Date(System.currentTimeMillis() + tripMinutes * 60_000L))
         val timeLeft = duration(tripMinutes)
+        val progress = Random.nextFloat() * 0.8f + 0.1f // somewhere along the trip, for the timeline
         val stop = res.getStringArray(R.array.sample_stops).random()
         fun icon(@DrawableRes id: Int) = ContextCompat.getDrawable(context, id)?.toBitmap(96, 96)
         fun plural(@PluralsRes id: Int, n: Int) = res.getQuantityString(id, n, n)
@@ -67,7 +68,7 @@ object SampleTrip {
                     title = plural(R.plurals.sample_leave_in, leave),
                     text = plural(R.plurals.sample_in_minutes, leave + Random.nextInt(5, 16)),
                     contentIntent = null, chip = chip, routeName = route, stepIcon = icon(R.drawable.ic_sample_wait),
-                    arrival = arrival, timeLeft = timeLeft
+                    arrival = arrival, timeLeft = timeLeft, progress = progress
                 )
             }
             // On board: "Get off in 4 stops / [12] in 9 minutes"
@@ -75,21 +76,21 @@ object SampleTrip {
                 title = plural(R.plurals.sample_get_off_in, Random.nextInt(1, 13)),
                 text = plural(R.plurals.sample_in_minutes, Random.nextInt(2, 30)),
                 contentIntent = null, chip = chip, routeName = route, stepIcon = icon(R.drawable.ic_transit_go),
-                arrival = arrival, timeLeft = timeLeft
+                arrival = arrival, timeLeft = timeLeft, progress = progress
             )
             // Walking to the stop: "Walk 6 min / to Central Station"
             2 -> GoState(
                 title = res.getString(R.string.sample_walk, Random.nextInt(2, 16)),
                 text = res.getString(R.string.sample_to, stop),
                 contentIntent = null, chip = chip, routeName = route, stepIcon = icon(R.drawable.ic_sample_walk),
-                arrival = arrival, timeLeft = timeLeft
+                arrival = arrival, timeLeft = timeLeft, progress = progress
             )
             // Bike station (like Transit's real one): "3 bikes / Walk to …", no route chip
             else -> GoState(
                 title = plural(R.plurals.sample_bikes, Random.nextInt(0, 16)), text = null,
                 previous = res.getString(R.string.sample_walk_to, stop),
                 contentIntent = null, stepIcon = icon(if (Random.nextBoolean()) R.drawable.ic_sample_walk else R.drawable.ic_sample_bike),
-                arrival = arrival, timeLeft = timeLeft
+                arrival = arrival, timeLeft = timeLeft, progress = progress
             )
         }
     }

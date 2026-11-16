@@ -17,6 +17,11 @@ class Settings(context: Context) {
         get() = prefs.getBoolean(KEY_CHIP, true)
         set(value) = prefs.edit { putBoolean(KEY_CHIP, value) }
 
+    /** Experimental: show the trip timeline image on the card */
+    var showTimeline: Boolean
+        get() = prefs.getBoolean(KEY_TIMELINE, true)
+        set(value) = prefs.edit { putBoolean(KEY_TIMELINE, value) }
+
     /** What to add after the next step: "in 20 minutes · 6:12 AM" or "· 4 h 00 min", or nothing */
     enum class Extra { ARRIVAL, TIME_LEFT, NONE }
 
@@ -28,5 +33,6 @@ class Settings(context: Context) {
         private const val KEY_EXTRA = "card_extra"
         private const val KEY_HIDE = "hide_notification"
         private const val KEY_CHIP = "show_route_chip"
+        private const val KEY_TIMELINE = "show_timeline"
     }
 }

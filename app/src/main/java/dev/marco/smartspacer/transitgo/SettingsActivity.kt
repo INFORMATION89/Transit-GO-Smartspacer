@@ -71,6 +71,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Timeline
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -255,6 +256,13 @@ class SettingsActivity : ComponentActivity() {
                         settings.showRouteChip, Position.First, colorfulWhenOn = true
                     ) { settings.showRouteChip = it }
                 }
+                item {
+                    ToggleRow(
+                        Icons.Rounded.Timeline, MaterialShapes.Clover4Leaf.toShape(),
+                        R.string.setting_timeline_title, R.string.setting_timeline_summary,
+                        settings.showTimeline, Position.Middle, rerollExample = false
+                    ) { settings.showTimeline = it }
+                }
                 item { ExtraRow(settings, MaterialShapes.Arch.toShape()) }
 
                 item { SectionHeader(R.string.section_lock_screen) }
@@ -362,6 +370,8 @@ class SettingsActivity : ComponentActivity() {
                 label = "preview"
             ) { isLive ->
                 val state = if (isLive) GoStore.state ?: sample else sample
+                // Experimental timeline, drawn exactly as the card gets it
+                val timelineImage = remember(state, settingsVersion) { timeline(this@SettingsActivity, state, settings) }
                 Column(Modifier.fillMaxWidth().padding(24.dp)) {
                     // One line (like the real card), cross-fading when it changes
                     AnimatedContent(
@@ -432,12 +442,19 @@ class SettingsActivity : ComponentActivity() {
                                 maxLines = 1, overflow = TextOverflow.Ellipsis
                             )
                         }
-                        glyph?.let {
+                        // With the timeline, Transit's logo is in the image instead
+                        glyph?.takeIf { timelineImage == null }?.let {
                             Spacer(Modifier.size(14.dp))
                             Image(it.asImageBitmap(), null, Modifier.size(22.dp), colorFilter = ColorFilter.tint(onCard))
                             Spacer(Modifier.size(6.dp))
                             Text("Transit", style = MaterialTheme.typography.titleMedium, color = onCard)
                         }
+                    }
+                    timelineImage?.let {
+                        Image(
+                            it.asImageBitmap(), null,
+                            Modifier.fillMaxWidth().padding(top = 14.dp).clip(RoundedCornerShape(20.dp))
+                        )
                     }
                 }
             }
