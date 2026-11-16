@@ -4,6 +4,11 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.core.animate
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.Constraints
+import kotlin.math.roundToInt
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -122,7 +127,9 @@ class SettingsActivity : ComponentActivity() {
     private companion object {
         const val SOURCE_URL = "https://github.com/INFORMATION89/Transit-GO-Smartspacer"
         /** How far you pull past the end of the list for the Source code chip to open the repo */
-        val PULL_TO_OPEN = 140.dp
+        val PULL_TO_OPEN = 220.dp
+        /** Share of the pull spent growing the chip into a full-width button (the rest fills the screen) */
+        const val CHIP_PHASE = 0.35f
         /** Footer height: top gap + the largest chip, so the chip growing never changes the
          *  list's length (the chip sits at the bottom of it) */
         val FOOTER_HEIGHT = 28.dp + 64.dp
@@ -175,6 +182,13 @@ class SettingsActivity : ComponentActivity() {
     private fun SettingsScreen() {
         val settings = remember { Settings(this) }
         val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+        val pullToOpen = rememberPullToOpen { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SOURCE_URL))) }
+        // Pull phases: first the chip grows into a full-width button, then that button grows
+        // until it fills the whole screen, and the repo opens
+        val chipPhase = (pullToOpen.progress / CHIP_PHASE).coerceIn(0f, 1f)
+        val takeover = ((pullToOpen.progress - CHIP_PHASE) / (1f - CHIP_PHASE)).coerceIn(0f, 1f)
+        var chipBounds by remember { mutableStateOf<Rect?>(null) }
+        Box(Modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -189,7 +203,6 @@ class SettingsActivity : ComponentActivity() {
                 )
             }
         ) { padding ->
-            val pullToOpen = rememberPullToOpen { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SOURCE_URL))) }
             LazyColumn(
                 contentPadding = PaddingValues(
                     start = 16.dp, end = 16.dp,
@@ -232,9 +245,60 @@ class SettingsActivity : ComponentActivity() {
                 // Sits at the end of the list; grows as you pull past the end (see rememberPullToOpen)
                 item {
                     Box(Modifier.fillMaxWidth().height(FOOTER_HEIGHT)) {
-                        SourceChip(pullToOpen.progress, Modifier.align(Alignment.BottomCenter))
+                        SourceChip(
+                            chipPhase,
+                            Modifier.align(Alignment.BottomCenter)
+                                .onGloballyPositioned { chipBounds = it.boundsInRoot() }
+                                // Hidden while the full-screen version takes over from it
+                                .graphicsLayer { alpha = if (takeover > 0f) 0f else 1f }
+                        )
                     }
                 }
+            }
+        }
+        SourceTakeover(takeover, chipBounds)
+        }
+    }
+
+    /**
+     * Second half of the pull: the full-width Source code button grows from where it sits until
+     * it fills the whole screen (corners straightening, icon and text getting bigger), right as
+     * the repo opens. Letting go shrinks it back into the button.
+     */
+    @Composable
+    private fun SourceTakeover(t: Float, from: Rect?) {
+        if (t <= 0f || from == null) return
+        val colors = MaterialTheme.colorScheme
+        Surface(
+            shape = RoundedCornerShape(lerp(32.dp, 0.dp, t)),
+            color = colors.primaryContainer,
+            contentColor = colors.onPrimaryContainer,
+            modifier = Modifier
+                .fillMaxSize()
+                // Place a box between the button's bounds and the full screen
+                .layout { measurable, c ->
+                    val w = c.maxWidth.toFloat(); val h = c.maxHeight.toFloat()
+                    val left = from.left * (1 - t)
+                    val top = from.top * (1 - t)
+                    val right = from.right + (w - from.right) * t
+                    val bottom = from.bottom + (h - from.bottom) * t
+                    val placeable = measurable.measure(
+                        Constraints.fixed((right - left).roundToInt(), (bottom - top).roundToInt())
+                    )
+                    layout(c.maxWidth, c.maxHeight) { placeable.place(left.roundToInt(), top.roundToInt()) }
+                }
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(painterResource(R.drawable.ic_github), null, Modifier.size(lerp(26.dp, 56.dp, t)))
+                Spacer(Modifier.size(lerp(12.dp, 18.dp, t)))
+                Text(
+                    stringResource(R.string.source_code),
+                    style = MaterialTheme.typography.labelLarge.copy(fontSize = lerp(18.sp, 30.sp, t)),
+                    maxLines = 1
+                )
             }
         }
     }
@@ -398,7 +462,7 @@ class SettingsActivity : ComponentActivity() {
                 // Drag left over after the list hit its end: that's the pull
                 override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
                     if (available.y < 0f && source == NestedScrollSource.UserInput) {
-                        pull.floatValue = (pull.floatValue - available.y * 0.55f).coerceAtMost(maxPx)
+                        pull.floatValue = (pull.floatValue - available.y * 0.7f).coerceAtMost(maxPx)
                         if (pull.floatValue >= maxPx && !opened.value) {
                             opened.value = true
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -463,7 +527,8 @@ class SettingsActivity : ComponentActivity() {
                             onClick = {
                                 selected = value
                                 settings.extra = value
-                                onSettingChanged()
+                                // Keep the same example so the change to its time is easy to see
+                                onSettingChanged(rerollExample = false)
                             },
                             shape = SegmentedButtonDefaults.itemShape(i, options.size)
                         ) { Text(stringResource(label), maxLines = 1) }
