@@ -4,6 +4,12 @@ import android.content.Intent
 import android.os.Build
 import androidx.core.net.toUri
 import androidx.compose.animation.core.animate
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInRoot
@@ -129,8 +135,8 @@ class SettingsActivity : ComponentActivity() {
 
     private companion object {
         const val SOURCE_URL = "https://github.com/INFORMATION89/Transit-GO-Smartspacer"
-        /** How far you pull past the end of the list for the Source code chip to open the repo */
-        val PULL_TO_OPEN = 220.dp
+        /** Share of the screen's height to drag past the end for the Source code chip to open the repo */
+        const val PULL_SCREEN_SHARE = 0.55f
         /** Share of the pull spent growing the chip into a full-width button (the rest fills the screen) */
         const val CHIP_PHASE = 0.35f
         /** Source code label size on the full-width button and on the full screen (1 = chip) */
@@ -190,7 +196,10 @@ class SettingsActivity : ComponentActivity() {
     private fun SettingsScreen() {
         val settings = remember { Settings(this) }
         val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-        val pullToOpen = rememberPullToOpen { openSource() }
+        val listState = rememberLazyListState()
+        // Whether the current touch started with the list already at the bottom
+        var touchStartedAtEnd by remember { mutableStateOf(false) }
+        val pullToOpen = rememberPullToOpen(armed = { touchStartedAtEnd }) { openSource() }
         // Pull phases: first the chip grows into a full-width button, then that button grows
         // until it fills the whole screen, and the repo opens. A light spring follows the finger,
         // smoothing out uneven touch events, and each phase is eased so it starts and settles
@@ -225,7 +234,16 @@ class SettingsActivity : ComponentActivity() {
                     bottom = padding.calculateBottomPadding() + 24.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
-                modifier = Modifier.fillMaxSize().nestedScroll(pullToOpen.connection)
+                state = listState,
+                modifier = Modifier.fillMaxSize()
+                    // Note where each touch starts, without taking the touch from the list
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                            touchStartedAtEnd = !listState.canScrollForward
+                        }
+                    }
+                    .nestedScroll(pullToOpen.connection)
             ) {
                 item { Column { PreviewCard(settings) } }
 
@@ -441,14 +459,16 @@ class SettingsActivity : ComponentActivity() {
     }
 
     /**
-     * Normal scrolling and flinging are untouched. Only when you're already at the end and keep
-     * dragging (finger moving up), the leftover drag is collected as a "pull", with some
-     * resistance; reaching [PULL_TO_OPEN] calls [onOpen] once, with a vibration. Letting go
-     * springs the pull back to 0. Flings that run into the end are ignored.
+     * Normal scrolling and flinging are untouched. A pull only starts when the finger touched
+     * down while the list was already at the end ([armed]), so swiping or flicking down to the
+     * bottom never triggers it. Then the drag left over past the end is the pull, 1:1 with the
+     * finger: dragging about [PULL_SCREEN_SHARE] of the screen's height (from near the bottom to
+     * near the top) calls [onOpen] once, with a vibration. Letting go springs it back to 0.
      */
     @Composable
-    private fun rememberPullToOpen(onOpen: () -> Unit): PullToOpen {
-        val maxPx = with(LocalDensity.current) { PULL_TO_OPEN.toPx() }
+    private fun rememberPullToOpen(armed: () -> Boolean, onOpen: () -> Unit): PullToOpen {
+        val maxPx = LocalWindowInfo.current.containerSize.height * PULL_SCREEN_SHARE
+        val currentArmed by rememberUpdatedState(armed)
         val haptics = LocalHapticFeedback.current
         val pull = remember { mutableFloatStateOf(0f) }
         val opened = remember { mutableStateOf(false) }
@@ -467,8 +487,8 @@ class SettingsActivity : ComponentActivity() {
 
                 // Drag left over after the list hit its end: that's the pull
                 override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                    if (available.y < 0f && source == NestedScrollSource.UserInput) {
-                        pull.floatValue = (pull.floatValue - available.y * 0.5f).coerceAtMost(maxPx)
+                    if (available.y < 0f && source == NestedScrollSource.UserInput && currentArmed()) {
+                        pull.floatValue = (pull.floatValue - available.y).coerceAtMost(maxPx)
                         if (pull.floatValue >= maxPx && !opened.value) {
                             opened.value = true
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
