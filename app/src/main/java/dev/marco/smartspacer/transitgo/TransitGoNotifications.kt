@@ -132,7 +132,7 @@ object TripReader {
         // Transit's own text, in whatever language Transit uses (e.g. "Leave in 5 minutes").
         // Trimmed: on bike steps it's " 0 bikes", with a space where Transit draws an inline icon
         val title = n.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()
-            ?.takeIf { it.isNotEmpty() } ?: "Transit GO"
+            ?.takeIf { it.isNotEmpty() }?.let(::withBikesLeft) ?: "Transit GO"
         // Observed: text = null and subText = the next step ("in 16 minutes"); the details are
         // in the custom layout, which ChipRenderer reads
         val text = (n.extras.getCharSequence(Notification.EXTRA_TEXT)
@@ -173,6 +173,24 @@ object TripReader {
         }
         GoStore.state = new
         notifyTarget(context)
+    }
+
+    /** Transit's bike-station title, just a count: "10 bikes" / "0 bicis" */
+    private val BIKES = Regex("""^(\d+)\s+(bikes?|bicis?)$""", RegexOption.IGNORE_CASE)
+
+    /**
+     * "10 bikes" -> "10 bikes left", "0 bicis" -> "0 bicis restantes". Uses the language of
+     * Transit's own word, since the title is in Transit's language, not the plugin's.
+     */
+    fun withBikesLeft(title: String): String {
+        val m = BIKES.matchEntire(title) ?: return title
+        val n = m.groupValues[1].toIntOrNull() ?: return title
+        val spanish = m.groupValues[2].startsWith("bici", ignoreCase = true)
+        return when {
+            !spanish -> "$title left"
+            n == 1 -> "$title restante"
+            else -> "$title restantes"
+        }
     }
 
     /** Same text and same kind of icons (bitmaps are redrawn every time, so compare what they show). */

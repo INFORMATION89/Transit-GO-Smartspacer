@@ -16,8 +16,8 @@
     <string name="sample_walk">Walk %d min</string>
     <string name="sample_to">to %s</string>
     <plurals name="sample_bikes">
-        <item quantity="one">%d bike</item>
-        <item quantity="other">%d bikes</item>
+        <item quantity="one">%d bike left</item>
+        <item quantity="other">%d bikes left</item>
     </plurals>
     <string name="sample_walk_to">Walk to %s</string>
     <string-array name="sample_stops">
