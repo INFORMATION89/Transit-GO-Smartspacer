@@ -197,7 +197,7 @@ class SettingsActivity : ComponentActivity() {
         // gently instead of moving at a constant rate.
         val progress by animateFloatAsState(
             pullToOpen.progress,
-            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+            spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
             label = "pull"
         )
         val chipPhase = FastOutSlowInEasing.transform((progress / CHIP_PHASE).coerceIn(0f, 1f))
@@ -468,7 +468,7 @@ class SettingsActivity : ComponentActivity() {
                 // Drag left over after the list hit its end: that's the pull
                 override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
                     if (available.y < 0f && source == NestedScrollSource.UserInput) {
-                        pull.floatValue = (pull.floatValue - available.y * 0.7f).coerceAtMost(maxPx)
+                        pull.floatValue = (pull.floatValue - available.y * 0.5f).coerceAtMost(maxPx)
                         if (pull.floatValue >= maxPx && !opened.value) {
                             opened.value = true
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -482,7 +482,7 @@ class SettingsActivity : ComponentActivity() {
                 // Finger lifted: spring the chip back
                 override suspend fun onPreFling(available: Velocity): Velocity {
                     if (pull.floatValue <= 0f) return Velocity.Zero
-                    animate(pull.floatValue, 0f, animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow)) { v, _ ->
+                    animate(pull.floatValue, 0f, animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow)) { v, _ ->
                         pull.floatValue = v
                     }
                     opened.value = false
