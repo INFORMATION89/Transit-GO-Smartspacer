@@ -2,8 +2,12 @@ package dev.marco.smartspacer.transitgo
 
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import android.os.Bundle
 import android.provider.Settings as AndroidSettings
@@ -156,7 +160,9 @@ class SettingsActivity : ComponentActivity() {
                 )
             }
         ) { padding ->
+            val listState = rememberLazyListState()
             LazyColumn(
+                state = listState,
                 contentPadding = PaddingValues(
                     start = 16.dp, end = 16.dp,
                     top = padding.calculateTopPadding(),
@@ -195,7 +201,10 @@ class SettingsActivity : ComponentActivity() {
                     ) { startActivity(Intent(AndroidSettings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
                 }
 
-                item { SourceChip() }
+                // Minimized until you scroll all the way to the end; the extra space below it is
+                // the "bit more" to scroll that expands it
+                item { SourceChip(expanded = !listState.canScrollForward) }
+                item { Spacer(Modifier.height(72.dp)) }
             }
         }
     }
@@ -376,20 +385,43 @@ class SettingsActivity : ComponentActivity() {
         }
     }
 
-    /** "[GitHub] Source code" chip at the bottom, opening the repo in the browser. */
+    /**
+     * "[GitHub] Source code" chip at the bottom, opening the repo in the browser.
+     * Minimized to just the GitHub icon until [expanded] (scrolled all the way down), then the
+     * label springs out from behind the icon.
+     */
     @Composable
-    private fun SourceChip() = Box(
+    private fun SourceChip(expanded: Boolean) = Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier.fillMaxWidth().padding(top = 28.dp)
     ) {
-        AssistChip(
+        val label = stringResource(R.string.source_code)
+        Surface(
             onClick = { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SOURCE_URL))) },
-            label = { Text(stringResource(R.string.source_code)) },
-            leadingIcon = {
-                Icon(painterResource(R.drawable.ic_github), null, Modifier.size(AssistChipDefaults.IconSize))
-            },
-            shape = RoundedCornerShape(50)
-        )
+            shape = RoundedCornerShape(50),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.semantics { contentDescription = label }
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(10.dp)
+            ) {
+                Icon(painterResource(R.drawable.ic_github), null, Modifier.size(20.dp))
+                AnimatedVisibility(
+                    visible = expanded,
+                    enter = expandHorizontally(springy(), expandFrom = Alignment.Start) + fadeIn(tween(250, delayMillis = 60)),
+                    exit = shrinkHorizontally(tween(200), shrinkTowards = Alignment.Start) + fadeOut(tween(120))
+                ) {
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1,
+                        modifier = Modifier.padding(start = 8.dp, end = 4.dp)
+                    )
+                }
+            }
+        }
     }
 
     @Composable
