@@ -1,6 +1,10 @@
 package dev.marco.smartspacer.transitgo
 
 import android.content.Intent
+import android.net.Uri
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.ui.res.painterResource
 import android.os.Bundle
 import android.provider.Settings as AndroidSettings
 import androidx.activity.ComponentActivity
@@ -104,6 +108,10 @@ import com.kieronquinn.app.smartspacer.sdk.provider.SmartspacerTargetProvider
  */
 class SettingsActivity : ComponentActivity() {
 
+    private companion object {
+        const val SOURCE_URL = "https://github.com/INFORMATION89/Transit-GO-Smartspacer"
+    }
+
     private var accessGranted by mutableStateOf(false)
     /** Bumped on every setting change so the preview re-reads the settings */
     private var settingsVersion by mutableIntStateOf(0)
@@ -139,7 +147,7 @@ class SettingsActivity : ComponentActivity() {
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             topBar = {
                 LargeTopAppBar(
-                    title = { Text(stringResource(R.string.target_label), fontWeight = FontWeight.SemiBold) },
+                    title = { Text(stringResource(R.string.app_name), fontWeight = FontWeight.SemiBold) },
                     scrollBehavior = scroll,
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -186,6 +194,8 @@ class SettingsActivity : ComponentActivity() {
                         if (accessGranted) R.string.setting_access_on else R.string.setting_access_off
                     ) { startActivity(Intent(AndroidSettings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
                 }
+
+                item { SourceChip() }
             }
         }
     }
@@ -364,6 +374,22 @@ class SettingsActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /** "[GitHub] Source code" chip at the bottom, opening the repo in the browser. */
+    @Composable
+    private fun SourceChip() = Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.fillMaxWidth().padding(top = 28.dp)
+    ) {
+        AssistChip(
+            onClick = { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SOURCE_URL))) },
+            label = { Text(stringResource(R.string.source_code)) },
+            leadingIcon = {
+                Icon(painterResource(R.drawable.ic_github), null, Modifier.size(AssistChipDefaults.IconSize))
+            },
+            shape = RoundedCornerShape(50)
+        )
     }
 
     @Composable

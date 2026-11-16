@@ -23,4 +23,8 @@
 
     <!-- Preview -->
     <string name="preview_example">Example trip · start GO in Transit to see yours</string>
+
+    <!-- Footer -->
+    <string name="source_code">Source code</string>
+
 </resources>

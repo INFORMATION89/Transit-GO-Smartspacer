@@ -74,7 +74,7 @@ Each one is drawn at 3× into a square bitmap (Smartspacer squeezes icons into a
 
 The card always shows Transit's own text, so it's in whatever language Transit uses (English, Spanish or any other). Arrival times are recognized in any language and clock format ("Arrive at 6:44 PM", "Llegada a las 6:44 a.m.", "18:44").
 
-The settings screen is in English. The example trip in its preview follows the plugin's language: English, or Spanish on a Spanish phone. If you set Transit to a different language than your phone (Android's per-app **App languages**), you can set the plugin to the same language there so the example matches.
+The plugin itself is in **English and Spanish**: the settings screen, the example trip in its preview, and its name in Smartspacer all follow the plugin's language (Spanish on a Spanish phone, English otherwise). If you set Transit to a different language than your phone (Android's per-app **App languages**), you can set the plugin to the same language there so everything matches.
 
 ## Limitations
 
