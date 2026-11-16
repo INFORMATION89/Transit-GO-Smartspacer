@@ -51,8 +51,14 @@ object GoStore {
 class TransitGoListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
+        val active = activeNotifications.orEmpty()
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            // Counts only, no content
+            Log.d("TransitGo", "listener connected: delivered=${active.size} " +
+                "transit=${active.count { it.packageName == TRANSIT_PACKAGE }} go=${active.count { isTransitGo(it) }}")
+        }
         // Pick up a trip that was already running before we connected
-        activeNotifications?.forEach { if (isTransitGo(it)) TripReader.onPosted(this, it) }
+        active.forEach { if (isTransitGo(it)) TripReader.onPosted(this, it) }
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {

@@ -142,6 +142,23 @@ class SettingsActivity : ComponentActivity() {
         super.onResume()
         // Refresh when coming back from the notification access screen
         accessGranted = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
+        // After an app update Android sometimes leaves the listener "bound" but disconnected;
+        // asking for a rebind fixes that (does nothing if it's already connected)
+        if (accessGranted) runCatching {
+            android.service.notification.NotificationListenerService.requestRebind(
+                android.content.ComponentName(this, TransitGoListener::class.java)
+            )
+        }
+    }
+
+    /** Opens the plugin's own notification access switch (or the full list if that page is missing). */
+    private fun openNotificationAccess() {
+        val detail = Intent(AndroidSettings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS).putExtra(
+            AndroidSettings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
+            android.content.ComponentName(this, TransitGoListener::class.java).flattenToString()
+        )
+        runCatching { startActivity(detail) }
+            .onFailure { startActivity(Intent(AndroidSettings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
     }
 
     /** Saves a change, redraws the preview and tells Smartspacer to redraw the card. */
@@ -209,7 +226,7 @@ class SettingsActivity : ComponentActivity() {
                         Icons.Rounded.NotificationsActive, MaterialShapes.Pill.toShape(),
                         R.string.setting_access,
                         if (accessGranted) R.string.setting_access_on else R.string.setting_access_off
-                    ) { startActivity(Intent(AndroidSettings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                    ) { openNotificationAccess() }
                 }
 
                 // Sits at the end of the list; grows as you pull past the end (see rememberPullToOpen)
