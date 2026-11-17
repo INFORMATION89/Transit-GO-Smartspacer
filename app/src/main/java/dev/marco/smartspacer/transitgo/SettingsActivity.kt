@@ -146,6 +146,9 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -862,7 +865,16 @@ class SettingsActivity : ComponentActivity() {
     ) {
         Icon(painterResource(R.drawable.ic_github), null, Modifier.size(18.dp))
         Spacer(Modifier.size(8.dp))
-        Text(stringResource(R.string.source_code), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+        // "Source code · v1.3.0", the version a bit dimmer; read from versionName so it
+        // updates with every release
+        val dim = LocalContentColor.current.copy(alpha = 0.7f)
+        Text(
+            buildAnnotatedString {
+                append(stringResource(R.string.source_code))
+                withStyle(SpanStyle(color = dim)) { append(" · v${BuildConfig.VERSION_NAME}") }
+            },
+            style = MaterialTheme.typography.labelLarge, maxLines = 1
+        )
     }
 
     @Composable
