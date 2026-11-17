@@ -12,8 +12,8 @@ android {
         applicationId = "dev.marco.smartspacer.transitgo"
         minSdk = 29
         targetSdk = 36
-        versionCode = 10300
-        versionName = "1.3.0"
+        versionCode = 10301
+        versionName = "1.3.1"
     }
 
     // The permanent release key (shared with the other Smartspacer plugins), given by the release
