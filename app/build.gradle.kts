@@ -16,14 +16,27 @@ android {
         versionName = "1.3.0"
     }
 
+    // The permanent release key (shared with the other Smartspacer plugins), given by the release
+    // workflow from GitHub secrets: SIGNING_KEYSTORE is the key file's path, SIGNING_PASSWORD its
+    // password. Without them (local and CI test builds), release builds use the debug key.
+    signingConfigs {
+        System.getenv("SIGNING_KEYSTORE")?.let { keystore ->
+            create("release") {
+                storeFile = file(keystore)
+                storePassword = System.getenv("SIGNING_PASSWORD")
+                keyAlias = "smartspacer-plugins"
+                keyPassword = System.getenv("SIGNING_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             // Shrinking strips the unused Material icons (the settings use 6 of thousands)
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // No release key for this personal plugin: sign with the debug key so it installs
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 

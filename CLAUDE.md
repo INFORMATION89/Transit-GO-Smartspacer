@@ -12,6 +12,8 @@ Versions follow MAJOR.MINOR.PATCH (semantic versioning), starting after 1.2:
 `versionName` in `app/build.gradle.kts` is the version, and `versionCode` is the same digits as
 one number: MAJOR × 10000 + MINOR × 100 + PATCH (1.2.1 → 10201). Tags are `v` + the version
 (`v1.2.1`); pushing a tag publishes a release (`.github/workflows/release.yml`).
+Releases are signed with the permanent key shared with the other Smartspacer plugins, from the
+`SIGNING_KEYSTORE_BASE64` and `SIGNING_PASSWORD` secrets (alias `smartspacer-plugins`).
 
 ## Releases
 
